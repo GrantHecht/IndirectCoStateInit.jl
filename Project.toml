@@ -8,6 +8,7 @@ Heuristics = "6acb60cf-2fd4-4316-b77c-a68f9bfdd616"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
+StaticArrays = "1"
 julia = "1.6"
 
 [extras]
