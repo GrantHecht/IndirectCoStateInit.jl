@@ -16,12 +16,27 @@ mutable struct FSSCoStateInitializer{HOT,HOOT} <: HeuristicsCoStateInitializer{H
 
     # Heuristic optimizer options 
     hoOpts::HOOT
+
+    # Initialized co-state vector
+    λh::Vector{Float64}
 end
 
 function FSSCoStateInitializer(bvpFunc, ICS, FCS; 
                                costFunc = :WSS, optimizer = :PSO, numParticles = 100,
-                               UBs = [40, 40, 40, 2, 2, 2, 2], 
-                               LBs = [-40, -40, -40, -2, -2, -2, -2])
+                               initMethod = :Uniform,
+                               UBs = [100, 100, 100, 50, 50, 50, 50], 
+                               LBs = [-100, -100, -100, -50, -50, -50, -50],
+                               iUBs = nothing, 
+                               iLBs = nothing,
+                               weights = [10, 10, 10, 1, 1, 1, 1],
+                               display = true,
+                               displayInterval = 1,
+                               maxIters = 1000,
+                               maxStallIters = 25,
+                               maxStallTime = 500,
+                               maxTime = 1800,
+                               useParallel = true
+                               )
 
     # Check size of ICS and FCS 
     if length(ICS) != 7 && length(FCS) != 7
@@ -29,26 +44,29 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
     end
 
     # Generate cost function
-    if costFunc == :WSS
-        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS)
+    if costFunc == :WSS # Weighted Sum of Squares
+        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS, weights)
     else
         throw(ArgumentError("Cost function type not implemented."))
     end
 
     # Initialize optimizer and options
-    opts = Options(;useParallel = true)
+    opts = Options(;display = display, displayInterval = displayInterval,
+                    maxIters = maxIters, useParallel = useParallel,
+                    maxStallIters = maxStallIters, maxStallTime = maxStallTime,
+                    maxTime = maxTime, iUB= iUBs, iLB = iLBs)
+
     if optimizer == :PSO 
         prob = Problem(cf, LBs, UBs)
-        ho   = PSO(prob; numParticles = numParticles)
+        ho   = PSO(prob; numParticles = numParticles, initMethod = initMethod)
     end
 
     # Instantiate FFS initializer 
-    FSSCoStateInitializer{typeof(ho), typeof(opts)}(ho, opts)
+    FSSCoStateInitializer{typeof(ho), typeof(opts)}(ho, opts, Vector{Float64}(undef, 7))
 end
 
 # Cost functions 
-function cfFSSWSS(x, bvpFunc, ICS, FCS)
-
+function cfFSSWSS(x, bvpFunc, ICS, FCS, ws)
     # Initialize state/co-state vector
     y0 = @SVector [ICS[1], ICS[2], ICS[3], ICS[4], ICS[5], ICS[6], ICS[7],
                    x[1], x[2], x[3], x[4], x[5], x[6], x[7]]
@@ -57,16 +75,15 @@ function cfFSSWSS(x, bvpFunc, ICS, FCS)
     yf, timeToFinalTime = bvpFunc(y0)
 
     # Compute cost
-    cost = 10.0*(yf[1] - FCS[1])^2 + 
-           10.0*(yf[2] - FCS[2])^2 +
-           10.0*(yf[3] - FCS[3])^2 +
-           1.0*(yf[4]  - FCS[4])^2 +
-           1.0*(yf[5]  - FCS[5])^2 +
-           1.0*(yf[6]  - FCS[6])^2 +
-           1.0*(yf[14] - FCS[7])^2 + 
-           10.0*timeToFinalTime
+    cost = ws[1]*(yf[1] - FCS[1])^2 + 
+           ws[2]*(yf[2] - FCS[2])^2 +
+           ws[3]*(yf[3] - FCS[3])^2 +
+           ws[4]*(yf[4]  - FCS[4])^2 +
+           ws[5]*(yf[5]  - FCS[5])^2 +
+           ws[6]*(yf[6]  - FCS[6])^2 +
+           ws[7]*(yf[14] - FCS[7])^2 + 
+           timeToFinalTime
 
     # Shift cost if terminated early
-
     return cost 
 end

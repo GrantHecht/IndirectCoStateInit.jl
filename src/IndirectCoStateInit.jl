@@ -11,5 +11,6 @@ include("FSSCoStateInitializer.jl")
 # Exports
 export FSSCoStateInitializer
 export initialize!
+export GetInitializedCostates
 
 end
