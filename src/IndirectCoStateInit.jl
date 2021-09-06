@@ -1,6 +1,7 @@
 module IndirectCoStateInit
 
-using Heuristics
+using Reexport
+@reexport using Heuristics
 using StaticArrays
 
 # Includes
