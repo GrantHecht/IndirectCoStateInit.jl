@@ -10,3 +10,8 @@ end
 function GetInitializedCostates(hcsi::HeuristicsCoStateInitializer)
     return hcsi.λh
 end
+
+function SetInitializedCostates!(hsci::HeuristicsCoStateInitializer, λh::AbstractVector)
+    hsci.λh .= λh 
+    return nothing
+end

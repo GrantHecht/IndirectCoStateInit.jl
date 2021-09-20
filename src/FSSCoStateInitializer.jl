@@ -51,17 +51,36 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
         elseif length(weights) != 7
             throw(ArgumentError("Weights vector must be of length 7 to use weighted sum of squares cost function."))
         end
-        prob = Problem(x -> cfFSSWSS(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
-    elseif costFunc == :WSSWM
+        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS, weights)
+
+        # Test cost function
+        try
+        xtest = @SVector [UBs[1] - LBs[1], UBs[2] - LBs[2], UBs[3] - LBs[3], 
+                          UBs[4] - LBs[4], UBs[5] - LBs[5], UBs[6] - LBs[6], UBs[7] - LBs[7]]
+        cf(xtest)
+        catch
+            throw(ErrorException("Cost function test failed! Likely cause of this error is selecting the incorrect initialization integrator for Weighted Sum of Squares cost without integral cost (:WSS)."))
+        end
+    elseif costFunc == :WSSWC
         if weights === nothing 
             weights = [10, 10, 10, 1, 1, 1, 1, 10]
         elseif length(weights) != 8
-            throw(ArgumentError("Weights vector must be of length 8 to use weighted sum of squares w/ mass cost function."))
+            throw(ArgumentError("Weights vector must be of length 8 to use weighted sum of squares w/ integral cost function."))
         end
-        prob = Problem(x -> cfFSSWSSWM(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
+        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS, weights)
+
+        # Test cost function
+        try
+        xtest = @SVector [UBs[1] - LBs[1], UBs[2] - LBs[2], UBs[3] - LBs[3], 
+                          UBs[4] - LBs[4], UBs[5] - LBs[5], UBs[6] - LBs[6], UBs[7] - LBs[7]]
+        cf(xtest)
+        catch
+            throw(ErrorException("Cost function test failed! Likely cause of this error is selecting the incorrect initialization integrator for Weighted Sum of Squares cost with integral cost (:WSSWC)."))
+        end
     else
         throw(ArgumentError("Cost function type not implemented."))
     end
+    prob = Problem(cf, LBs, UBs)
 
     # Initialize optimizer and options
     opts = Options(;display = display, displayInterval = displayInterval,
@@ -102,10 +121,10 @@ function cfFSSWSS(x, bvpFunc, ICS, FCS, ws)
     return cost 
 end
 
-function cfFSSWSSWM(x, bvpFunc, ICS, FCS, ws)
+function cfFSSWSSWC(x, bvpFunc, ICS, FCS, ws)
     # Initialize state/co-state vector
     y0 = @SVector [ICS[1], ICS[2], ICS[3], ICS[4], ICS[5], ICS[6], ICS[7],
-                   x[1], x[2], x[3], x[4], x[5], x[6], x[7]]
+                   x[1], x[2], x[3], x[4], x[5], x[6], x[7], 0.0]
 
     # Evaluate bvp function
     yf, timeToFinalTime = bvpFunc(y0)
@@ -118,7 +137,7 @@ function cfFSSWSSWM(x, bvpFunc, ICS, FCS, ws)
            ws[5]*(yf[5]  - FCS[5])^2 +
            ws[6]*(yf[6]  - FCS[6])^2 +
            ws[7]*(yf[14] - FCS[7])^2 + 
-           ws[8]*(yf[7]  - y0[7])^2 +
+           ws[8]*yf[15]^2 +
            timeToFinalTime
 
     # Shift cost if terminated early
