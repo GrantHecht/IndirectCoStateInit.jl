@@ -33,6 +33,8 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
                                displayInterval = 1,
                                maxIters = 1000,
                                funcTol = 1e-6,
+                               MFD = 2e-6,
+                               minNeighborhoodFraction = 0.25,
                                maxStallIters = 25,
                                maxStallTime = 500,
                                maxTime = 1800,
@@ -46,41 +48,49 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
 
     # Generate cost function and heuristic optimization problem
     if costFunc == :WSS # Weighted Sum of Squares
+        
+        # Check length of weights vector
         if weights === nothing
             weights = [10, 10, 10, 1, 1, 1, 1]
         elseif length(weights) != 7
             throw(ArgumentError("Weights vector must be of length 7 to use weighted sum of squares cost function."))
         end
-        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS, weights)
+
+        # Instantiate problem
+        prob = Problem(x->cfFSSWSS(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
 
         # Test cost function
         try
         xtest = @SVector [UBs[1] - LBs[1], UBs[2] - LBs[2], UBs[3] - LBs[3], 
                           UBs[4] - LBs[4], UBs[5] - LBs[5], UBs[6] - LBs[6], UBs[7] - LBs[7]]
-        cf(xtest)
+        prob.f(xtest)
         catch
             throw(ErrorException("Cost function test failed! Likely cause of this error is selecting the incorrect initialization integrator for Weighted Sum of Squares cost without integral cost (:WSS)."))
         end
+
     elseif costFunc == :WSSWC
+
+        # Check length of weights vector
         if weights === nothing 
             weights = [10, 10, 10, 1, 1, 1, 1, 10]
         elseif length(weights) != 8
             throw(ArgumentError("Weights vector must be of length 8 to use weighted sum of squares w/ integral cost function."))
         end
-        cf(x) = cfFSSWSS(x, bvpFunc, ICS, FCS, weights)
+
+        # Instantiate problem
+        prob = Problem(x->cfFSSWSSWC(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
 
         # Test cost function
         try
         xtest = @SVector [UBs[1] - LBs[1], UBs[2] - LBs[2], UBs[3] - LBs[3], 
                           UBs[4] - LBs[4], UBs[5] - LBs[5], UBs[6] - LBs[6], UBs[7] - LBs[7]]
-        cf(xtest)
+        prob.f(xtest)
         catch
             throw(ErrorException("Cost function test failed! Likely cause of this error is selecting the incorrect initialization integrator for Weighted Sum of Squares cost with integral cost (:WSSWC)."))
         end
     else
         throw(ArgumentError("Cost function type not implemented."))
     end
-    prob = Problem(cf, LBs, UBs)
 
     # Initialize optimizer and options
     opts = Options(;display = display, displayInterval = displayInterval,
@@ -89,9 +99,13 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
                     maxTime = maxTime, iUB= iUBs, iLB = iLBs, funcTol = funcTol)
 
     if optimizer == :PSO 
-        ho   = PSO(prob; numParticles = numParticles, initMethod = initMethod)
+        ho   = PSO(prob; numParticles = numParticles, initMethod = initMethod, minNeighborFrac = minNeighborhoodFraction)
     elseif optimizer == :MS_PSO 
         ho   = MS_PSO(prob; numParticlesPerSwarm = numParticles, numSwarms = numSwarms, initMethod = initMethod)
+    elseif optimizer == :MPSO
+        ho   = MPSO(prob; numParticles = numParticles, MFD = MFD)
+    else
+        throw(ArgumentError("Optimizer is not implemented"))
     end
 
     # Instantiate FFS initializer 
@@ -115,7 +129,7 @@ function cfFSSWSS(x, bvpFunc, ICS, FCS, ws)
            ws[5]*(yf[5]  - FCS[5])^2 +
            ws[6]*(yf[6]  - FCS[6])^2 +
            ws[7]*(yf[14] - FCS[7])^2 + 
-           timeToFinalTime
+           100.0*timeToFinalTime
 
     # Shift cost if terminated early
     return cost 
