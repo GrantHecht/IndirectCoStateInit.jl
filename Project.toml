@@ -4,6 +4,7 @@ authors = ["Grant Hecht"]
 version = "0.1.0"
 
 [deps]
+BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
 Heuristics = "6acb60cf-2fd4-4316-b77c-a68f9bfdd616"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
