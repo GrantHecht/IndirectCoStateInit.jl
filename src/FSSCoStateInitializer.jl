@@ -21,7 +21,7 @@ mutable struct FSSCoStateInitializer{HOT,HOOT} <: HeuristicsCoStateInitializer{H
     λh::Vector{Float64}
 end
 
-function FSSCoStateInitializer(bvpFunc, ICS, FCS; 
+function FSSCoStateInitializer(bvpFunc, tspan, ICS, FCS; 
                                costFunc = :WSS, optimizer = :PSO, numParticles = 100, numSwarms = 4,
                                initMethod = :Uniform,
                                UBs = [100, 100, 100, 50, 50, 50, 50], 
@@ -57,7 +57,7 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
         end
 
         # Instantiate problem
-        prob = Problem(x->cfFSSWSS(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
+        prob = Problem(x->cfFSSWSS(x, y->bvpFunc(y,tspan), ICS, FCS, weights), LBs, UBs)
 
         # Test cost function
         try
@@ -78,7 +78,7 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
         end
 
         # Instantiate problem
-        prob = Problem(x->cfFSSWSSWC(x, bvpFunc, ICS, FCS, weights), LBs, UBs)
+        prob = Problem(x->cfFSSWSSWC(x, y->bvpFunc(y,tspan), ICS, FCS, weights), LBs, UBs)
 
         # Test cost function
         try
