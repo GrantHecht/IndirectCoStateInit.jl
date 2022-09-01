@@ -38,7 +38,8 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
                                maxStallIters = 25,
                                maxStallTime = 500,
                                maxTime = 1800,
-                               useParallel = true
+                               useParallel = true,
+			       callback = nothing
                                )
 
     # Check size of ICS and FCS 
@@ -93,10 +94,11 @@ function FSSCoStateInitializer(bvpFunc, ICS, FCS;
     end
 
     # Initialize optimizer and options
-    opts = Options(;display = display, displayInterval = displayInterval,
+    opts = Heuristics.Options(;display = display, displayInterval = displayInterval,
                     maxIters = maxIters, useParallel = useParallel,
                     maxStallIters = maxStallIters, maxStallTime = maxStallTime,
-                    maxTime = maxTime, iUB= iUBs, iLB = iLBs, funcTol = funcTol)
+                    maxTime = maxTime, iUB = iUBs, iLB = iLBs,# funcTol = funcTol,
+		            callback = callback)
 
     if optimizer == :PSO 
         ho   = PSO(prob; numParticles = numParticles, initMethod = initMethod, minNeighborFrac = minNeighborhoodFraction)
