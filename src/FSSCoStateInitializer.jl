@@ -96,7 +96,7 @@ function FSSCoStateInitializer(bvpFunc, tspan, ICS, FCS;
     opts = Options(;display = display, displayInterval = displayInterval,
                     maxIters = maxIters, useParallel = useParallel,
                     maxStallIters = maxStallIters, maxStallTime = maxStallTime,
-                    maxTime = maxTime, iUB= iUBs, iLB = iLBs, funcTol = funcTol)
+                    maxTime = maxTime, iUB= iUBs, iLB = iLBs)#, funcTol = funcTol)
 
     if optimizer == :PSO 
         ho   = PSO(prob; numParticles = numParticles, initMethod = initMethod, minNeighborFrac = minNeighborhoodFraction)
